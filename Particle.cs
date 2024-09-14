@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-public class Particle
+public partial class Particle
 {
 	public int id = 0;
 

@@ -3,20 +3,20 @@ using System;
 
 
 
-public class Main : Node2D
+public partial class Main : Node2D
 {
 	// Declare member variables here. Examples:
 	// private int a = 2;
 	// private string b = "text";
 
+	RandomNumberGenerator rng = new RandomNumberGenerator();
+
+    Sprite2D sprite;
+
 	
 
-	Sprite sprite;
-
-	
-
-	int width = 384/1;
-	int height = 216/1;
+	int width = 384 * 1;
+	int height = 216 * 1;
 	
 	Image img = new Image();
 	ImageTexture imageTexture;
@@ -67,7 +67,7 @@ public class Main : Node2D
 
 	Particle[,] world;
 
-	OpenSimplexNoise noise;
+	FastNoiseLite noise;
 
 	
 
@@ -79,7 +79,7 @@ public class Main : Node2D
 			
 
 			PackedScene r = (PackedScene)ResourceLoader.Load("res://SelectMaterialContainer.tscn");
-			SelectMaterialContainer b = (SelectMaterialContainer)r.Instance();
+			SelectMaterialContainer b = (SelectMaterialContainer)r.Instantiate();
 			GetNode<VBoxContainer>("ScrollContainer/VBoxContainer").AddChild(b);
 			b.Owner = this;
 			b.Name = ""+i;
@@ -87,15 +87,19 @@ public class Main : Node2D
 		}
 
 
-		sprite = GetNode<Sprite>("Sprite");
-		imageTexture = (ImageTexture)sprite.Texture;
+		sprite = GetNode<Sprite2D>("Sprite2D");
+		//imageTexture = (ImageTexture)sprite.Texture;
 
 		world = new Particle[width, height];
-		noise = new OpenSimplexNoise();
+		noise = new FastNoiseLite();
 		noise.Seed = (int)GD.Randi();
-		noise.Octaves = 4;
-		noise.Period = 128.0f;
-		noise.Persistence = 0.8f;
+		noise.FractalOctaves = 4;
+		noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Simplex;
+		//noise.Period = 128.0f;
+		noise.Frequency = 1f / 128f;
+		//noise.Persistence = 0.8f;
+		noise.FractalType = FastNoiseLite.FractalTypeEnum.Fbm;
+		noise.FractalGain = 0.8f;
 
 		GD.Print("test");
 
@@ -107,20 +111,20 @@ public class Main : Node2D
 			}
 		}
 
-		img.Create(width, height, false, Image.Format.Rgba8);
+		img = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
 		img.Fill(new Color(0,0,0,1));
-		imageTexture.CreateFromImage(img, 3);
+		imageTexture = ImageTexture.CreateFromImage(img);
 
 		GenerateWorld();
 
 	}
 
 	private void GenerateWorld() {
-		img.Lock();
+		//img.Lock();
 		int sh = height/2;
 		for (int x = 0; x < width; x++)
 		{
-			int noiseValue = (int)(noise.GetNoise1d(x) * 100);
+			int noiseValue = (int)(noise.GetNoise1D(x) * 100);
 			int y = sh + noiseValue;
 
 			for (int xx = -1; xx < 2; xx++)
@@ -137,15 +141,15 @@ public class Main : Node2D
 				UpdatePixel(x, y, new Particle((int)Block.DIRT));
 			}
 		}
-		img.Unlock();
-		imageTexture.CreateFromImage(img);
+		//img.Unlock();
+		imageTexture = ImageTexture.CreateFromImage(img);
 	}
 
 
-	float tickRate = 0.0f;
-	float tickTime = 0.0f;
+	double tickRate = 0.0f;
+	double tickTime = 0.0;
 
-	public override void _Process(float delta)
+	public override void _Process(double delta)
 	{
 		base._Process(delta);
 
@@ -188,10 +192,12 @@ public class Main : Node2D
 		frameCount += 1;
 
 		bool mouseHold = Input.IsActionPressed("click");
-		Vector2 mousePos = (GetGlobalMousePosition()/sprite.Scale.x).Floor();
-		img.Lock();
+		Vector2 mousePos = (GetGlobalMousePosition()/sprite.Scale.X).Floor();
+		//Viewport viewport = GetViewport();
+        //Vector2 mousePos = viewport.GetMousePosition();
+        //img.Lock();
 
-		if (Input.IsActionJustPressed("space")) {
+        if (Input.IsActionJustPressed("space")) {
 			
 			//img.Fill(Colors.Black);
 			//imageTexture.CreateFromImage(img);
@@ -211,8 +217,8 @@ public class Main : Node2D
 				for (int yy = -drawRadius; yy < drawRadius+1; yy++)
 				{
 					if (xx*xx+yy*yy <= drawRadius*drawRadius) {
-						if (IsInside((int)mousePos.x+xx, (int)mousePos.y+yy))
-							UpdatePixel((int)mousePos.x+xx, (int)mousePos.y+yy, new Particle(selected));
+						if (IsInside((int)mousePos.X + xx, (int)mousePos.Y + yy))
+							UpdatePixel((int)mousePos.X + xx, (int)mousePos.Y + yy, new Particle(selected));
 					}
 					
 				}
@@ -234,9 +240,11 @@ public class Main : Node2D
 				}
 			}
 		}
-		img.Unlock();
+		//img.Unlock();
 		
-		imageTexture.CreateFromImage(img, 3);
+		imageTexture = ImageTexture.CreateFromImage(img);
+
+		sprite.Texture = imageTexture;
 	}
 
 	void UpdateWorld(int x, int y) {
@@ -319,7 +327,7 @@ public class Main : Node2D
 
 	bool Flow(int x, int y, Particle p) {
 		if (p.dx == 0)
-			p.dx = ((float)GD.RandRange(-0.1, 0.1));
+			p.dx = ((float)rng.RandfRange(-0.1f, 0.1f));
 		int dir = Mathf.Sign(p.dx);
 		p.dx += 0.1f * dir;
 		int steps = Mathf.CeilToInt(Math.Abs(p.dx));
@@ -390,7 +398,7 @@ public class Main : Node2D
 
 	void UpdateWater(int x, int y) {
 		Particle p = world[x,y];
-		int randDir = (int)Mathf.Floor((float)GD.RandRange(-1, 2));
+		int randDir = (int)Mathf.Floor((float)rng.RandfRange(-1f, 2f));
 		if (Fall(x,y,p))
 			return;
 		if (Slide(x,y, p, randDir))
@@ -417,7 +425,7 @@ public class Main : Node2D
 
 	void UpdateFire(int x, int y) {
 		Particle p = world[x,y];
-		img.SetPixel(x,y, colors[p.id].Lightened((float)GD.RandRange(0, 0.4)));
+		img.SetPixel(x,y, colors[p.id].Lightened((float)rng.RandfRange(0f, 0.4f)));
 		if (p.lifeTime > 10) {
 			UpdatePixel(x,y, new Particle((int)Block.AIR));
 			return;

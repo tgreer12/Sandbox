@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-public class SelectMaterialContainer : MarginContainer
+public partial class SelectMaterialContainer : MarginContainer
 {
     // Declare member variables here. Examples:
     // private int a = 2;
@@ -15,6 +15,6 @@ public class SelectMaterialContainer : MarginContainer
 
     public void _on_SelectMaterialBtn_pressed() {
         Main main = (Main)Owner;
-        main.SetSelected(Name.ToInt());
+        main.SetSelected(Name.ToString().ToInt());
     }
 }
